@@ -1,0 +1,6 @@
+The model is a stream - a two-dimensional one.
+
+For each "cell" I shall request a horizontal and a vertical "range".
+ - if you want all rows to have integral height, just return one and the same
+   horizontal range
+ ...

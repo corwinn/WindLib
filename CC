@@ -1,0 +1,21 @@
+Coding Convention
+=================
+
+divergent:
+
+ - types are prefixed with "W" (interfaces - "IW")
+ - calls are using 1 space: "foo (4);"
+ - object fields that are not properties are prefixed with "_": "int _count;"
+ - big "{}" blocks have comment after the end, hinting the block purpose:
+     "foreach (var q in p){" ... many lines ... "}// foreach (var q in p)"
+    - no need to do that for the main namespace (after the last "}")
+ - use the named parameters: "connect (async: true, keep_alive: false)"
+ - text patterns (please be exact - it simplifies command line "magic"):
+    - "//TODO " - something that needs tp be done ASAP (current milestone)
+    - "//LATER " - something that could be done at the next milestone
+    - "//TODONT " - something that shouldn't be done
+    - "//PERHAPS " - replace ignorance with knowledge prior deciding this one
+    - "//D " - temporary debug code used during it_doesnt_do_what_i_want_it_to
+    - "//> " - command line utility usage
+    - "//TODOn " - same as above with "n" - its unique id - [positive integer]
+    - "//NOTE" - something you should pay attention to while resolving a TODO
