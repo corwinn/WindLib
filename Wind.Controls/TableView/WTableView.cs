@@ -32,6 +32,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 **** END LICENCE BLOCK ****/
 
+//TODO write me a test unit; ASAP
+
 #define VISUAL_DBG
 
 using System;
@@ -259,7 +261,11 @@ namespace Wind.Controls
                             Model_MoveSharedColumnPtrs (-columns);
                             goto _10;
                         }
-                        else _sx += (RenderArea.Width - cw); // anchor to RenderArea.Width
+                        else
+                        {
+                            if (cw > RenderArea.Width) _sx += (RenderArea.Width - cw); // anchor to RenderArea.Width if there is anything to anchor
+                            break;
+                        }
 
                 if (direction < 0) { RemoveNonVisibleLeftMostRanges (); RemoveNonVisibleBottomRanges (); }
             }// horizontal scrolling
@@ -290,7 +296,11 @@ namespace Wind.Controls
                             Model_MoveSharedRowPtrs (-rows);
                             goto _20;
                         }
-                        else _sy += (RenderArea.Height - ch); // anchor to RenderArea.Height
+                        else
+                        {
+                            if (ch > RenderArea.Height) _sy += (RenderArea.Height - ch); // anchor to RenderArea.Height if there is anything to anchor
+                            break;
+                        }
 
                 if (direction < 0) { RemoveNonVisibleTopRanges (); RemoveNonVisibleRightmostRanges (); }
             }// vertical scrolling
