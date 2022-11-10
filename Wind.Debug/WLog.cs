@@ -159,7 +159,8 @@ namespace Wind.Log
         public static void Warn(string message) { _info.Put ("Warn: " + message); }
 
         static bool _running;
-        static Semaphore _stopped = new Semaphore (0, 1);
+        static Semaphore _stopped = new Semaphore (initialCount: 0, maximumCount: 1);
+        static Mutex _listeners_lock = new Mutex (initiallyOwned: false);
 
         static void LogThread()
         {
@@ -170,20 +171,38 @@ namespace Wind.Log
                     foreach (var log in _logs)
                     {
                         if (!_running) break;
-                        foreach (var log_entry in log.Get ())
+                        _listeners_lock.WaitOne (); // Unsubscribe() should flush all messages related to foo prior unsubscribing it
+                        try
                         {
-                            if (!_running) break;
-                            foreach (var listener in _listeners)
+                            foreach (var log_entry in log.Get ())
                             {
                                 if (!_running) break;
-                                listener.Log (log_entry);
+
+                                foreach (var listener in _listeners)
+                                {
+                                    if (!_running) break;
+                                    listener.Log (log_entry);
+                                }
                             }
                         }
+                        finally { _listeners_lock.ReleaseMutex (); }
                         if (_running) log.Clear ();
                     }
                     Thread.Sleep (1);
                 }
-                // flush
+                FlushAll ();
+            }
+            finally
+            {
+                _stopped.Release ();
+            }
+        }
+
+        static void FlushAll()
+        {
+            _listeners_lock.WaitOne ();
+            try
+            {
                 foreach (var log in _logs)
                 {
                     foreach (var log_entry in log.Get ())
@@ -192,10 +211,7 @@ namespace Wind.Log
                     log.Clear ();
                 }
             }
-            finally
-            {
-                _stopped.Release ();
-            }
+            finally { _listeners_lock.ReleaseMutex (); }
         }
 
         static Thread _log_thread = new Thread (LogThread);
@@ -211,7 +227,23 @@ namespace Wind.Log
         public static void Stop() { if (!_running) return; _running = false; _stopped.WaitOne (); }
 
         static List<WLog.ILogListener> _listeners = new List<ILogListener> ();
-        public static void Subscribe(WLog.ILogListener listener) { _listeners.Add (listener); }
-        public static void Unsubscribe(WLog.ILogListener listener) { _listeners.Remove (listener); }
+        public static void Subscribe(WLog.ILogListener listener)
+        {
+            _listeners_lock.WaitOne ();
+            try { _listeners.Add (listener); }
+            finally { _listeners_lock.ReleaseMutex (); }
+        }
+        public static void Unsubscribe(WLog.ILogListener listener)
+        {
+            _listeners_lock.WaitOne ();
+            try
+            {
+                foreach (var log in _logs)
+                    foreach (var log_entry in log.Get ())
+                        listener.Log (log_entry);
+                _listeners.Remove (listener);
+            }
+            finally { _listeners_lock.ReleaseMutex (); }
+        }
     }// public class WLog
 }
