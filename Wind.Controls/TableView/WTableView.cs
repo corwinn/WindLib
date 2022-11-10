@@ -117,6 +117,7 @@ namespace Wind.Controls
             _vscroll_model.Scroll += (a, b) => { HandleScrollEvent (a, b); };//TODO _scroll_models are parameter
             _hscroll_model.Scroll += (a, b) => { HandleScrollEvent (a, b); };//
 
+#if VISUAL_RND_DBG
             // Warning! You'll find this form difficult to click on.
             _dbg_timer.Interval = 250;
             _dbg_timer.Tick += (a, b) =>
@@ -136,6 +137,9 @@ namespace Wind.Controls
         }
         private static Random _dbg_rnd_gen = new Random ();
         private static System.Windows.Forms.Timer _dbg_timer = new System.Windows.Forms.Timer ();
+#else
+        }
+#endif
 
         private int _sx = 0, _sy = 0; // x and y modified by scroll (top left)
         private List<List<IWTableViewCell>> _cells = new List<List<IWTableViewCell>> ();
