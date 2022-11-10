@@ -202,6 +202,7 @@ namespace Wind.Controls
         public class DreadedException : Exception { public DreadedException(string message) : base (message: message) { } }
         private void CacheConsistencyCheck()//TODO remove the DreadedException when code is proven by a test suite
         {// Don't do this unless you're ready to handle a lot of dialogs. //TODO Do Log() instead.
+            if (_cells.Count <= 0) return;
             Debug.Assert (1 == _cells.GroupBy (row => row.Count).Count (), "_cells shall always be a 2D array");
             if (1 != _cells.GroupBy (row => row.Count).Count ())
                 throw new DreadedException ("Fixme:_cells shall always be a 2D array");
@@ -262,7 +263,7 @@ namespace Wind.Controls
 
                 if (direction < 0) { RemoveNonVisibleLeftMostRanges (); RemoveNonVisibleBottomRanges (); }
             }// horizontal scrolling
-            else
+            else if (_cells.Count > 0)
             {
                 // check the top gap
                 var scrollable_top = 0;
@@ -351,6 +352,7 @@ namespace Wind.Controls
         private delegate void Model_OnCell(IWTableViewCell cell, int row, int column);
         private void Model_Walk(IWTableViewModel stream, WGraphicsContext gc, Model_OnCell on_cell, Model_MoveNext move_next)
         {// If you're looking for the "engine" - this is it. All the code around it, is "the details".
+            if (null == stream.Current) return; // no cells
             int rows = 0; int columns = 0;
             do
             {
