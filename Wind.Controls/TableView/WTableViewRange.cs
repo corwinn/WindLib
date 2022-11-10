@@ -95,8 +95,8 @@ namespace Wind.Controls
         /// <summary>Indicates whether or not this is a header range.</summary>
         public bool Header { get; private set; }
         /// <summary>Header alignment might differ.</summary>
-        WTableViewAlignment HeaderVerticalAlignment { get; set; }
-        WTableViewAlignment HeaderHorizontalAlignment { get; set; }
+        public WTableViewAlignment HeaderVerticalAlignment { get; set; }
+        public WTableViewAlignment HeaderHorizontalAlignment { get; set; }
     }// class WTableViewRange
 
     [Flags]
