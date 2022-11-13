@@ -223,13 +223,26 @@ namespace Wind.Controls
                 ScrollTheModel (vertical: false, direction: 1);
             }
             base.OnResize (e);
-            ScrollTheModel (vertical: true, direction: h_grew ? -1 : 1);
-            ScrollTheModel (vertical: false, direction: v_grew ? 1 : -1);
+            ScrollTheModel (vertical: true, direction: v_grew ? -1 : 1);
+            ScrollTheModel (vertical: false, direction: h_grew ? 1 : -1);
+
+            // Endless streams are easy. Smooth scrolling a finite number of ranges - thats hard.
+            // Because only a fraction of your data is being rendered at time, only a limited number of ranges
+            // will be auto-sized e.g. at any given time the scrollbars will reflect whatever was resized so far.
+            _vscroll_model.SmallSize = _cells.Count;
+            if (null != _model) _vscroll_model.LargeSize = _model.SizeVertical;
+            //_vscroll.Visible = measure_result_h < 0;
+            if (ScrollableColumns ().Count () > 0) _hscroll_model.SmallSize = ScrollableColumns ().First ().Count ();
+            int cw = ScrollableColumns ().Count () <= 0 ? 0 :
+                    _sx + GridSize () + ScrollableColumns ().First ().Sum (x => x.VRange.Size) + ScrollableColumns ().First ().Count * GridSize ();
+            if (cw > RenderArea.Width) _hscroll_model.SmallSize = _hscroll_model.SmallSize - 1;
+            if (null != _model) _hscroll_model.LargeSize = _model.SizeHorizontal;
+            //_hscroll.Visible = measure_result_w < 0;
         }
 
         //TODO given what follows, perhaps _cell should become a net: Cell<T> { Cell<T> * Left, * Right, * Top, * Bottom; void Clip (); }?
 
-        private void ScrollTheModel(bool vertical, int direction)
+        private void ScrollTheModel(bool vertical, int direction)//TODO the one function
         {
             if (null == _model || (_cells.Count <= 0 && _column_header.Count <= 0)) return;
             if (this.RenderArea.Width <= 0 || this.RenderArea.Height <= 0) return;
@@ -238,6 +251,7 @@ namespace Wind.Controls
             {
                 // check for a gap on the left
                 if (_sx > 0)
+                {
                     while (_sx > 0)
                         if (Model_MoveSharedColumnPtrs (-1)) // model being scrolled by (-1, 0)
                         {
@@ -245,35 +259,40 @@ namespace Wind.Controls
                             _sx -= ScrollableColumns ().First ()[0].VRange.Size + GridSize ();
                         }
                         else _sx = 0; // anchor to 0 when there are no more columns
-                if (direction > 0) { RemoveNonVisibleRightmostRanges (); RemoveNonVisibleBottomRanges (); }
-            // this concludes scroll to the left
+                    RemoveNonVisibleRightmostRanges (); RemoveNonVisibleBottomRanges ();
+                }
 
                 // check for a gap on the right
-            _10:
                 int cw = ScrollableColumns ().Count () <= 0 ? 0 :
                     _sx + GridSize () + ScrollableColumns ().First ().Sum (x => x.VRange.Size) + ScrollableColumns ().First ().Count * GridSize ();
+                _hscroll.Visible = cw >= RenderArea.Width;
                 int columns = ScrollableColumns ().Count () <= 0 ? 0 : ScrollableColumns ().First ().Count;
                 if (cw < RenderArea.Width)
+                {
                     while (cw < RenderArea.Width)
                         if (Model_MoveSharedColumnPtrs (columns)) // model being scrolled by (n, 0)
                         {
                             Model_InsertColumn (columns);
                             Model_MoveSharedColumnPtrs (-columns);
-                            goto _10;
+                            cw += ScrollableColumns ().First ()[0].VRange.Size + GridSize ();
+                            columns = ScrollableColumns ().Count () <= 0 ? 0 : ScrollableColumns ().First ().Count;
+                            _hscroll.Visible = cw >= RenderArea.Width;
                         }
                         else
                         {
                             if (cw > RenderArea.Width) _sx += (RenderArea.Width - cw); // anchor to RenderArea.Width if there is anything to anchor
                             break;
                         }
-
-                if (direction < 0) { RemoveNonVisibleLeftMostRanges (); RemoveNonVisibleBottomRanges (); }
+                    RemoveNonVisibleLeftmostRanges ();
+                }
+                RemoveNonVisibleBottomRanges ();
             }// horizontal scrolling
-            else if (_cells.Count > 0)
+            else
             {
                 // check the top gap
                 var scrollable_top = 0;
-                if (_sy > scrollable_top)
+                if (_sy > scrollable_top && _cells.Count > 0)
+                {
                     while (_sy > scrollable_top)
                         if (Model_MoveSharedRowPtrs (-1)) // model being scrolled by (0, -1)
                         {
@@ -281,28 +300,34 @@ namespace Wind.Controls
                             _sy -= _cells[0][0].HRange.Size + GridSize ();
                         }
                         else _sy = scrollable_top; // anchor to 0 when there are no more rows
-                // Model_InsertRow () could insert a different number of cells should column size change e.g. RemoveNonVisibleRightmostRanges().
-                if (direction > 0) { RemoveNonVisibleBottomRanges (); RemoveNonVisibleRightmostRanges (); }
+                    // Model_InsertRow () could insert a different number of cells should column size change e.g. RemoveNonVisibleRightmostRanges().
+                    RemoveNonVisibleBottomRanges (); RemoveNonVisibleRightmostRanges ();
+                }
 
                 // check the bottom gap
-            _20:
-                var ch = _sy + GridSize () + ColumnHeaderHeight () + _cells.Sum (row => row[0].HRange.Size + GridSize ());
+                var ch = _cells.Count > 0 ? _sy + GridSize () + ColumnHeaderHeight () + _cells.Sum (row => row[0].HRange.Size + GridSize ())
+                    : RenderArea.Height;
                 int rows = _cells.Count;
                 if (ch < RenderArea.Height)
+                {
                     while (ch < RenderArea.Height)
+                    {
                         if (Model_MoveSharedRowPtrs (rows)) // model being scrolled by (0, n)
                         {
                             Model_InsertRow (rows);
                             Model_MoveSharedRowPtrs (-rows);
-                            goto _20;
+                            ch += _cells[_cells.Count - 1][0].HRange.Size + GridSize ();
+                            rows = _cells.Count;
                         }
                         else
                         {
                             if (ch > RenderArea.Height) _sy += (RenderArea.Height - ch); // anchor to RenderArea.Height if there is anything to anchor
                             break;
                         }
-
-                if (direction < 0) { RemoveNonVisibleTopRanges (); RemoveNonVisibleRightmostRanges (); }
+                    }
+                    RemoveNonVisibleTopRanges ();
+                }
+                RemoveNonVisibleRightmostRanges ();
             }// vertical scrolling
             CacheConsistencyCheck ();
         }// ScrollTheModel()
@@ -323,7 +348,7 @@ namespace Wind.Controls
                     if (last_visible_range + 1 < r.Count) //TODO needed by the improper ModelChanged measuring
                         r.RemoveRange (last_visible_range + 1, r.Count - (last_visible_range + 1));
         }// RemoveNonVisibleRightmostRanges()
-        private void RemoveNonVisibleLeftMostRanges()//TODO Clip()
+        private void RemoveNonVisibleLeftmostRanges()//TODO Clip()
         {
             var vranges = ScrollableColumns ().First (); // any row is useful ... ^
             int inv_columns = 0;

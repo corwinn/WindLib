@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 **** END LICENCE BLOCK ****/
 
+using System;
 namespace Wind.Controls
 {
     /// <summary>The WTableView default scroll model: IWScrollerModel&lt;long&gt;.</summary>
@@ -40,6 +41,7 @@ namespace Wind.Controls
         private long _small_size; // visible area size
         private long _large_size; // virtual area size
         private long _small_position; // visible area position in the virtual area
+        private double _precise_small_position; // visible area high-precision position in the virtual area
         bool _the_way_is_shut = false; // event driven sanitizer
         public WTableViewScrollModel(int small = 0, long large = 0) { this.SmallSize = small; this.LargeSize = large; }
         delegate void Validator(long value); // throws ArgumentException if validation fails
@@ -80,7 +82,8 @@ namespace Wind.Controls
         #region INScrollerModel implementation
         public virtual int ComputeMidOffset(WScroller scroller, int local)
         {
-            return _small_position < 0 ? -1 : WMath.LinearProjection (value: _small_position, from: _large_size, to: local);
+            if (_small_position != (int)Math.Round(_precise_small_position)) _precise_small_position = _small_position;
+            return _small_position < 0 ? -1 : (_large_size != 0 ? (int)Math.Round(local * _precise_small_position / _large_size) : 0);
             //(_large_size > 0 ? (int)Math.Round (local * _small_position / (double)_large_size) : 0);
         }
         public virtual int ComputeMidSize(WScroller scroller, int local)
@@ -93,13 +96,17 @@ namespace Wind.Controls
         }
         public virtual void ScrollMinSmall(WScroller scroller)
         {
-            if (_small_position > 0) { _small_position--; Scroll (this, null); }
+            if (_small_position > 0) { _small_position--; Scroll (this, new WScrollerEventArgs (WScrollerEvent.Min | WScrollerEvent.Small)); }
             else if (0 == LargeSize) Scroll (this, new WScrollerEventArgs (WScrollerEvent.Min | WScrollerEvent.Small));
         }
         protected virtual int LastVisiblePage { get { return (int)(_large_size > _small_size ? _large_size - _small_size : 0); } }
         public virtual void ScrollMaxSmall(WScroller scroller)
         {
-            if (_small_position >= 0 && _small_position < LastVisiblePage) { _small_position++; Scroll (this, null); }
+            if (_small_position >= 0 && _small_position < LastVisiblePage)
+            {
+                _small_position++;
+                Scroll (this, new WScrollerEventArgs (WScrollerEvent.Max | WScrollerEvent.Small));
+            }
             else if (0 == LargeSize) Scroll (this, new WScrollerEventArgs (WScrollerEvent.Max | WScrollerEvent.Small));
         }
         public virtual void ScrollMinLarge(WScroller scroller)
@@ -109,7 +116,7 @@ namespace Wind.Controls
             {
                 var sentinel = _small_position;
                 if ((_small_position -= _small_size) < 0) _small_position = 0; // snap to 1st visible page start offset
-                if (sentinel != _small_position) Scroll (this, null);
+                if (sentinel != _small_position) Scroll (this, new WScrollerEventArgs (WScrollerEvent.Min | WScrollerEvent.Large));
             }
         }
         public virtual void ScrollMaxLarge(WScroller scroller)
@@ -119,7 +126,7 @@ namespace Wind.Controls
             {
                 var sentinel = _small_position;
                 if ((_small_position += _small_size) > LastVisiblePage) _small_position = LastVisiblePage; // snap to last visible page start offset
-                if (sentinel != _small_position) Scroll (this, null);
+                if (sentinel != _small_position) Scroll (this, new WScrollerEventArgs (WScrollerEvent.Max | WScrollerEvent.Large));
             }
         }
         public virtual int ScrollDistinctPixels(WScroller scroller, int local, int d)
@@ -131,8 +138,10 @@ namespace Wind.Controls
             }
 
             var sentinel = _small_position;
-            _small_position = WMath.LinearProjection (value: scroller.MidOffset, from: local, to: _large_size);
-            if (sentinel != _small_position) Scroll (this, null);
+
+            _precise_small_position = local != 0 ? scroller.MidOffset * _large_size / (double)local : 0;
+            _small_position = (int)Math.Round(_precise_small_position);
+            if (sentinel != _small_position) Scroll (this, new WScrollerEventArgs (WScrollerEvent.Distinct, d));
             //_small_position = local > 0 ? (int)Math.Round (_large_size * scroller.MidOffset / (double)local) : 0;
             return ComputeMidOffset (scroller, local);
         }

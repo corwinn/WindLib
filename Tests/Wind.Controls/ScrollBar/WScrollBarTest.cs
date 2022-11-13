@@ -133,7 +133,7 @@ namespace Wind.Controls.ScrollBar // follows code-being-tested, paths
         [Test, Sequential, Category (".Size")]
         public void Size_NoNo([Values (-1, -10, -4321, int.MinValue, int.MinValue >> 2, int.MaxValue, int.MaxValue >> 2)] int x)
         {
-            Assert.That (() => _s.Size = x, Throws.InstanceOf<WArgumentException>());
+            Assert.That (() => _s.Size = x, Throws.InstanceOf<WArgumentException> ());
         }
         [Test, Sequential, Category (".Size")]
         public void InitialState_Size_ValidValues_LengthSet(
@@ -180,7 +180,7 @@ namespace Wind.Controls.ScrollBar // follows code-being-tested, paths
         [Test, Sequential, Category (".Length")]
         public void Length_NoNo([Values (-1, -10, -4321, int.MinValue, int.MinValue >> 2, int.MaxValue, int.MaxValue >> 2)] int x)
         {
-            Assert.That (() => _s.Size = x, Throws.InstanceOf<WArgumentException>());
+            Assert.That (() => _s.Size = x, Throws.InstanceOf<WArgumentException> ());
         }
         [Test, Sequential, Category (".Length")]
         public void InitialState_Length_ValidValues_SizeSet(
@@ -434,7 +434,7 @@ namespace Wind.Controls.ScrollBar // follows code-being-tested, paths
         [Test, Sequential, Category ("ScrollDistinctPixels")]
         public void InitialState_ScrollDistinctPixels_NoNo([Values (int.MinValue, int.MaxValue, int.MinValue >> 2, int.MaxValue >> 2)] int x)
         {
-            Assert.That (() => _s.ScrollDistinctPixels (x), Throws.InstanceOf<WArgumentException>());
+            Assert.That (() => _s.ScrollDistinctPixels (x), Throws.InstanceOf<WArgumentException> ());
         }
 
         class TestModel_ScrollDistinctPixels_Contract : TestModel
@@ -657,5 +657,41 @@ namespace Wind.Controls.ScrollBar // follows code-being-tested, paths
             Assert.That (() => { _s.ScrollMaxLarge (); }, Throws.Nothing);
             Assert.AreEqual (expected: 49, actual: model.SmallPosition);
         }//public void ScrollMaxLarge_Computing()
-    }//public class WScrollerTest
+
+        // --[WScrollerCommonModel, WTableViewScrollModel]---------------------------------------------------------------------
+        [Test, Sequential, Category ("Bugs - _model.ScrollDistinctPixels bug")]
+        public void Bug4([Values (25, 2)] int mo)
+        {
+            _s.Size = 17;
+            _s.Length = 455;
+            var model = new WScrollerCommonModel (15, 16);
+            _s.Model = model;
+            model.SmallPosition = 1;
+            var dp = -1;
+            _s.MidOffset = mo;
+            _s.MidOffset += dp; Assert.AreEqual (expected: _s.MidOffset - dp, actual: mo);
+            var q = model.ScrollDistinctPixels (_s, _s.Length - 2 * _s.Size, -1);
+            Assert.AreEqual (q, _s.MidOffset);
+            _s.Model = new WTableViewScrollModel (15, 16);
+            q = model.ScrollDistinctPixels (_s, _s.Length - 2 * _s.Size, -1);
+            Assert.AreEqual (q, _s.MidOffset);
+        }// bug4()
+        [Test, Category ("Bugs - division by your favorite number")]
+        public void Bug4_1()
+        {
+            _s.Size = 17;
+            _s.Length = 455;
+            var model = new WScrollerCommonModel (15, 16);
+            _s.Model = model;
+            model.SmallPosition = 1;
+            var dp = -12;
+            _s.MidOffset += dp;
+            var q = _s.MidOffset;
+            Assert.That (() => q = model.ScrollDistinctPixels (_s, _s.Length - 2 * _s.Size, -1), Throws.Nothing);
+            Assert.AreEqual (q, _s.MidOffset);
+            _s.Model = new WTableViewScrollModel (15, 16);
+            Assert.That (() => q = model.ScrollDistinctPixels (_s, _s.Length - 2 * _s.Size, -1), Throws.Nothing);
+            Assert.AreEqual (q, _s.MidOffset);
+        }// Bug4_1()
+    }// public class WScrollerTest
 }

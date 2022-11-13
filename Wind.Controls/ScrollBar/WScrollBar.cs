@@ -39,6 +39,8 @@ using System.ComponentModel;
 
 namespace Wind.Controls
 {
+    //PERHAPS IWScrollerModel -> WScrollerModel<T> vs WScroller<T> ?
+
     //TODO "unpack" :)
 
     //TODO what is it (besides custom drawing) that the built-in scrollbars can't do using percent(precision) scrolling?
@@ -118,6 +120,8 @@ namespace Wind.Controls
     }
     public delegate void WScrollerEventHandler(object sender, WScrollerEventArgs e);
 
+    public class WScrollerPopularException : WException { public WScrollerPopularException(string message) : base (message: message) { } }
+
     /// <summary>This is the scrollbar that has no relation to the thing being scrolled, let alone its rendering.</summary>
     public sealed class WScroller // : extends BlackBox ; no events here
     {
@@ -130,7 +134,8 @@ namespace Wind.Controls
                        |<___________________len__________________>|
 
             _dp = _local - _mlen
-        */ // See "ScrollBarPicture.dia" for a better view.
+        */
+        // See "ScrollBarPicture.dia" for a better view.
         private int _dp;  // distinct pixels: (Length - 2 * ButtonSize) - MidSize
         private int _len;  // the size of the scroller (Vertical - Height, Horizontal - Width)
         private int _mlen; // the size of the middle button (Vertical - Height, Horizontal - Width)
@@ -279,7 +284,7 @@ namespace Wind.Controls
             _mid_offset = upper_bound_mid_offset < 0 ? 0 : upper_bound_mid_offset;
             //TODONT _mid_offset = (_mid_offset = p >= _dp ? _dp - 1 : p) < 0 ? 0 : _mid_offset; shorter but less readable
             var t = _model.ScrollDistinctPixels (this, _local, value);
-            if (t != _mid_offset) throw new WException ("_model.ScrollDistinctPixels bug");
+            if (t != _mid_offset) throw new WScrollerPopularException ("_model.ScrollDistinctPixels bug");
         }
     }// class WScroller
 
@@ -290,6 +295,7 @@ namespace Wind.Controls
         private int _small_size; // visible area size
         private int _large_size; // virtual area size
         private int _small_position; // visible area position in the virtual area
+        private double _precise_small_position; // visible area high-precision position in the virtual area
         bool _the_way_is_shut = false; // event driven - sanitizer
         public WScrollerCommonModel(int small = 0, int large = 0) { this.SmallSize = small; this.LargeSize = large; }
         delegate void Validator(int value); // throws ArgumentException if validation fails
@@ -330,7 +336,8 @@ namespace Wind.Controls
         #region IScrollerModel implementation
         public virtual int ComputeMidOffset(WScroller scroller, int local)
         {
-            return _small_position < 0 ? -1 : WMath.LinearProjection (value: _small_position, from: _large_size, to: local);
+            if (_small_position != (int)Math.Round(_precise_small_position)) _precise_small_position = _small_position;
+            return _small_position < 0 ? -1 : (int)Math.Round(local * _precise_small_position / _large_size);
             //(_large_size > 0 ? (int)Math.Round (local * _small_position / (double)_large_size) : 0);
         }
         public virtual int ComputeMidSize(WScroller scroller, int local)
@@ -374,7 +381,8 @@ namespace Wind.Controls
             if (LargeSize <= 0) return scroller.MidOffset; // nothing to scroll
 
             var sentinel = _small_position;
-            _small_position = WMath.LinearProjection (value: scroller.MidOffset, from: local, to: _large_size);
+            _precise_small_position = local != 0 ? scroller.MidOffset * _large_size / (double)local : 0;
+            _small_position = (int)Math.Round(_precise_small_position);
             if (sentinel != _small_position) Scroll (this, null);
             //_small_position = local > 0 ? (int)Math.Round (_large_size * scroller.MidOffset / (double)local) : 0;
             return ComputeMidOffset (scroller, local);
@@ -648,7 +656,7 @@ namespace Wind.Controls
             int middle_button_offset = 0; // offset by the min button
             if (_s.MinMaxVisible)
             {//TODONT optimize /\ this will go to WScrollBar, and it will use pre-computed Paths, Styles, etc. - not important now
-               //              \/
+                //              \/
                 int a0 = _s.Size / 4, a1 = 3 * a0, a2 = 2 * a0; // h/v lines inside _s.Size : f(t) = 1/4, f(t) = 3/4, f(t) = 1/2
                 Point[] up = new Point[] { new Point (a0, a1), new Point (a2, a0), new Point (a1, a1) }; // arrow up - ^
                 {// left button
@@ -674,7 +682,7 @@ namespace Wind.Controls
                         gc.ResetTransform ();
                     }
                 }
-                middle_button_offset = _s.Size;
+                middle_button_offset = _s.Size + 1;
             }
             if (MiddleVisible)
                 ControlPaint.DrawButton (gc, middle_button_offset + _s.MidOffset, 0, _s.MidSize, _s.Size, ButtonState.Flat); // mid button
